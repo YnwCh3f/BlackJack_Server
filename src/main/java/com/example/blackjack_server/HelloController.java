@@ -9,16 +9,17 @@ public class HelloController {
 
     @FXML private Button btStart;
     @FXML private ListView<String> lvList;
+    private Server s = new Server();
 
     public void initialize(){
-        Server s = new Server();
-        if (lvList.getItems().size() > 5) btStart.setStyle("-fx-text-fill: green;");
+        if (s.clients.size() >= 7) btStart.setStyle("-fx-text-fill: green;");
     }
 
     @FXML private void onStartClick(){
-        if (lvList.getItems().size() > 5){
-
+        for (Client x : s.clients){
+            s.send("start:" + lvList.getItems().size(), s.clients.indexOf(x));
         }
+
     }
 
 }

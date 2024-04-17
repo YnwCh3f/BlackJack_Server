@@ -9,19 +9,22 @@ import java.io.IOException;
 import java.lang.reflect.Array;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Stack;
+import java.util.*;
 
 public class Server {
 
     private ArrayList<String> serverCards = new ArrayList<>();
     private DatagramSocket socket;
-    private ArrayList<Client> clients = new ArrayList<>();
+    public ArrayList<Client> clients = new ArrayList<>();
     private Stack<String> cards = new Stack<>();
-
+    private HashSet<String> royals = new HashSet<>();
+    private int sumServer = 0;
 
     public Server() {
+        royals.add("J");
+        royals.add("Q");
+        royals.add("K");
+        royals.add("A");
         try {
             socket = new DatagramSocket(678);
         } catch (SocketException e) {
@@ -50,7 +53,7 @@ public class Server {
         Collections.shuffle(cards);
     }
 
-    private void send(String s, int index){
+    public void send(String s, int index){
         byte[] data = s.getBytes(StandardCharsets.UTF_8);
         try {
             InetAddress ipv4 = Inet4Address.getByName(clients.get(index).ip);
@@ -95,28 +98,39 @@ public class Server {
             if (m[0].equals("bet")){
                 int x = Integer.parseInt(m[1]);
                 clients.get(search(ip)).money -= x;
-            }
-            if (m[0].equals("s")){
-                serverCards.add(m[1]);
-            }
-            if (m[0].equals("k")){
                 String card = cards.pop();
-                clients.get(search(ip)).cards.add(card);
-                send(card, search(ip));
+                serverCards.add(card);
+                for (Client c : clients){
+                    send("s:" + card, clients.indexOf(c));
+                    send("s:gray_back", clients.indexOf(c));
+                    send("k:" + cards.pop(), clients.indexOf(c));
+                    send("k:" + cards.pop(), clients.indexOf(c));
+                }
             }
         }else{
             if (message.equals("exit")){
                 send("paid:" + clients.get(search(ip)).money, search(ip));
             }
             if (message.equals("hit")){
-                send("paid:" + clients.get(search(ip)).money, search(ip));
+                send("k:" + cards.pop(), search(ip));
             }
             if (message.equals("stand")){
-                send("paid:" + clients.get(search(ip)).money, search(ip));
+                clients.get(search(ip)).isStand = true;
             }
         }
-
-
+        if (allStand()){
+            if (sumServer < 17){
+                String card = cards.pop();
+                serverCards.add(card);
+                String[] c = card.split("");
+                if (royals.contains(c[0])){
+                    if (c[0].equals("A")){
+                        if (sumServer + 11 > 21) sumServer += 1;
+                        else sumServer += 11;
+                    } else sumServer += 10;
+                }
+            }
+        }
     }
 
     private int search(String ip){
@@ -125,5 +139,14 @@ public class Server {
         return k;
     }
 
+    private boolean allStand(){
+        int k = 0;
+        int x = 0;
+        while (x < clients.size()){
+            if (clients.get(k).isStand) k++;
+            x++;
+        }
+        return k == clients.size();
+    }
 
 }
