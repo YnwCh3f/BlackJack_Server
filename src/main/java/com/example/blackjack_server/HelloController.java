@@ -6,6 +6,7 @@ import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
+import javafx.scene.paint.Color;
 
 import java.io.IOException;
 import java.net.*;
@@ -18,7 +19,7 @@ public class HelloController {
     @FXML private ListView<String> lvList;
     private DatagramSocket socket;
     private Server server = new Server();
-    //private HashMap<String, String> names = new HashMap<>();
+    private boolean isStarted = false;
 
     public void initialize(){
         try {
@@ -69,6 +70,7 @@ public class HelloController {
         if (server.clients.size() > 5) ;
         if (m.length > 1){
             if (m[0].equals("join")){
+                if (server.clients.size() == 0) btStart.setTextFill(Color.web("#00ff00"));
                 Client c = new Client();
                 c.ip = ip;
                 c.port = port;
@@ -94,11 +96,36 @@ public class HelloController {
         }else{
             if (message.equals("exit")){
                 ObservableList<String> items = lvList.getItems();
-                if (items.contains(ip)) items.remove(items.indexOf(ip));
+                if (items.contains(ip)) {
+                    items.remove(items.indexOf(ip));
+                    server.clients.remove(search(ip));
+                    //System.out.println();
+                }
                 send("paid:" + server.clients.get(search(ip)).money, search(ip));
+                if (server.clients.size() == 0) btStart.setTextFill(Color.web("#ff0000"));
             }
-            if (message.equals("hit")){
-                if (lvList.getItems().contains(ip)) send("k:" + server.deck.pop(), search(ip));
+            if (message.equals("hit")) {
+                if (isStarted) {
+                    if (lvList.getItems().contains(ip)) {
+                        if (server.clients.get(search(ip)).sumCards < 21) {
+                            String card = server.deck.pop();
+                            String[] a = card.split("");
+                            int value = 0;
+                            if (a.length == 3) {
+                                value = 10;
+                            } else {
+                                if (server.royals.contains(a[0])) value = 10;
+                                else if (a[0].equals("A")) {
+                                    if (server.clients.get(search(ip)).sumCards + 11 > 21) value = 1;
+                                    else value = 11;
+                                } else value = Integer.parseInt(a[0]);
+                            }
+                            server.clients.get(search(ip)).sumCards += value;
+                            send("k:" + card, search(ip));
+                            System.out.println(server.clients.get(search(ip)).sumCards + "  " + card);
+                        }
+                    }
+                }
             }
             if (message.equals("stand")){
                 server.clients.get(search(ip)).isStand = true;
@@ -126,10 +153,12 @@ public class HelloController {
         return k == server.clients.size();
     }
 
-    @FXML private void onStartClick(){
-        for (Client x : server.clients){
-            send("start:" + server.clients.size(), server.clients.indexOf(x));
+    @FXML private void onStartClick() {
+        if (server.clients.size() > 0) {
+            isStarted = true;
+            for (Client x : server.clients) {
+                send("start:" + server.clients.size(), server.clients.indexOf(x));
+            }
         }
     }
-
 }

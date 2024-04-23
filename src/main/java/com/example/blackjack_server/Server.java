@@ -16,14 +16,13 @@ public class Server {
     public ArrayList<String> cards = new ArrayList<>();
     public ArrayList<Client> clients = new ArrayList<>();
     public Stack<String> deck = new Stack<>();
-    private HashSet<String> royals = new HashSet<>();
+    public HashSet<String> royals = new HashSet<>();
     public int sumCards = 0;
 
     public Server() {
         royals.add("J");
         royals.add("Q");
         royals.add("K");
-        royals.add("A");
         for(int x = 0; x < 6; x++) {
             for (int i = 2; i < 11; i++) {
                 for (int j = 0; j < "CDHS".split("").length; j++) {
