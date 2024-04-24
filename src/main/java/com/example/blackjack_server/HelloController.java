@@ -84,12 +84,11 @@ public class HelloController {
             }
             if (m[0].equals("bet")){
                 int x = Integer.parseInt(m[1]);
-                if (server.clients.get(search(ip)).money == x) return;
+                //if (server.clients.get(search(ip)).money == x) return;
                 server.clients.get(search(ip)).money -= x;
                     String card = server.deck.pop();
                     server.cards.add(card);
                     send("s:" + card, search(ip));
-                    //send("s:gray_back", search(ip));
                     send("k:" + server.deck.pop(), search(ip));
                     send("k:" + server.deck.pop(), search(ip));
             }
@@ -98,11 +97,13 @@ public class HelloController {
                 ObservableList<String> items = lvList.getItems();
                 if (items.contains(ip)) {
                     items.remove(items.indexOf(ip));
+                    send("paid:" + server.clients.get(search(ip)).money, search(ip));
                     server.clients.remove(search(ip));
+                    if (server.clients.size() == 0) btStart.setTextFill(Color.web("#ff0000"));
+                    isStarted = false;
                     //System.out.println();
                 }
-                send("paid:" + server.clients.get(search(ip)).money, search(ip));
-                if (server.clients.size() == 0) btStart.setTextFill(Color.web("#ff0000"));
+
             }
             if (message.equals("hit")) {
                 if (isStarted) {
