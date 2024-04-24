@@ -21,7 +21,26 @@ public class HelloController {
     private Server server = new Server();
     private boolean isStarted = false;
 
+    private int bet = 0;
+    private int index = 0;
+
     public void initialize(){
+        while (server.sumCards < 21){
+            String card = server.deck.pop();
+            server.cards.add(card);
+            String[] a = card.split("");
+            int value;
+            if (a.length == 3) {
+                value = 10;
+            } else {
+                if (server.royals.contains(a[0])) value = 10;
+                else if (a[0].equals("A")) {
+                    if (server.sumCards + 11 > 21) value = 1;
+                    else value = 11;
+                } else value = Integer.parseInt(a[0]);
+            }
+            server.sumCards += value;
+        }
         try {
             socket = new DatagramSocket(678);
         } catch (SocketException e) {
@@ -70,7 +89,7 @@ public class HelloController {
         if (server.clients.size() > 5) ;
         if (m.length > 1){
             if (m[0].equals("join")){
-                if (server.clients.size() == 0) btStart.setTextFill(Color.web("#00ff00"));
+                if (server.clients.size() == 0) btStart.setTextFill(Color.web("#ffa500"));
                 Client c = new Client();
                 c.ip = ip;
                 c.port = port;
@@ -84,13 +103,16 @@ public class HelloController {
             }
             if (m[0].equals("bet")){
                 int x = Integer.parseInt(m[1]);
-                //if (server.clients.get(search(ip)).money == x) return;
                 server.clients.get(search(ip)).money -= x;
-                    String card = server.deck.pop();
-                    server.cards.add(card);
-                    send("s:" + card, search(ip));
-                    send("k:" + server.deck.pop(), search(ip));
-                    send("k:" + server.deck.pop(), search(ip));
+                bet++;
+                if (bet == lvList.getItems().size()){
+                    index++;
+                    bet = 0;
+                }
+                String card = server.cards.get(index);
+                send("s:" + card, search(ip));
+                send("k:" + server.deck.pop(), search(ip));
+                send("k:" + server.deck.pop(), search(ip));
             }
         }else{
             if (message.equals("exit")){
@@ -99,14 +121,16 @@ public class HelloController {
                     items.remove(items.indexOf(ip));
                     send("paid:" + server.clients.get(search(ip)).money, search(ip));
                     server.clients.remove(search(ip));
-                    if (server.clients.size() == 0) btStart.setTextFill(Color.web("#ff0000"));
+                    if (server.clients.size() == 0){
+                        btStart.setTextFill(Color.web("#ff0000"));
+                        btStart.setText("START");
+                    }
                     isStarted = false;
-                    //System.out.println();
                 }
 
             }
             if (message.equals("hit")) {
-                if (isStarted) {
+                if (isStarted && !server.clients.get(search(ip)).isStand) {
                     if (lvList.getItems().contains(ip)) {
                         if (server.clients.get(search(ip)).sumCards < 21) {
                             String card = server.deck.pop();
@@ -123,19 +147,36 @@ public class HelloController {
                             }
                             server.clients.get(search(ip)).sumCards += value;
                             send("k:" + card, search(ip));
-                            System.out.println(server.clients.get(search(ip)).sumCards + "  " + card);
                         }
                     }
                 }
             }
             if (message.equals("stand")){
                 server.clients.get(search(ip)).isStand = true;
+                if (allStand()){
+                    while (server.sumCards < 17){
+                        String card = server.deck.pop();
+                        String[] a = card.split("");
+                        int value;
+                        if (a.length == 3) {
+                            value = 10;
+                        } else {
+                            if (server.royals.contains(a[0])) value = 10;
+                            else if (a[0].equals("A")) {
+                                if (server.sumCards + 11 > 21) value = 1;
+                                else value = 11;
+                            } else value = Integer.parseInt(a[0]);
+                        }
+                        server.sumCards += value;
+                        server.cards.add(server.deck.pop());
+                        for (Client c : server.clients){
+                            send("s:" + card, search(c.ip));
+                        }
+                    }
+                }
             }
         }
-        if (allStand()){
 
-            server.cards.add(server.deck.pop());
-        }
     }
 
     private int search(String ip){
@@ -156,6 +197,8 @@ public class HelloController {
 
     @FXML private void onStartClick() {
         if (server.clients.size() > 0) {
+            btStart.setTextFill(Color.web("#00ff00"));
+            btStart.setText("STARTED");
             isStarted = true;
             for (Client x : server.clients) {
                 send("start:" + server.clients.size(), server.clients.indexOf(x));
