@@ -25,9 +25,10 @@ public class HelloController {
     private int index = 0;
 
     public void initialize(){
-        while (server.sumCards < 21){
+        while (server.sumCards < 17){
             String card = server.deck.pop();
             server.cards.add(card);
+            // System.out.println(card);
             String[] a = card.split("");
             int value;
             if (a.length == 3) {
@@ -41,6 +42,8 @@ public class HelloController {
             }
             server.sumCards += value;
         }
+        if (server.sumCards > 21) server.full = true;
+        //System.out.println(server.sumCards);
         try {
             socket = new DatagramSocket(678);
         } catch (SocketException e) {
@@ -86,9 +89,9 @@ public class HelloController {
 
     private void onReceive(String message, String ip, int port){
         String[] m = message.split(":");
-        if (server.clients.size() > 5) ;
+        //if (server.clients.size() > 5) ;
         if (m.length > 1){
-            if (m[0].equals("join")){
+            if (m[0].equals("join") && server.joinable && Integer.parseInt(m[1]) >= 300){
                 if (server.clients.size() == 0) btStart.setTextFill(Color.web("#ffa500"));
                 Client c = new Client();
                 c.ip = ip;
@@ -101,18 +104,56 @@ public class HelloController {
                 }
                 send("joined:" + z, search(ip));
             }
-            if (m[0].equals("bet")){
-                int x = Integer.parseInt(m[1]);
-                server.clients.get(search(ip)).money -= x;
-                bet++;
-                if (bet == lvList.getItems().size()){
-                    index++;
-                    bet = 0;
+            if (m[0].equals("bet")) {
+                if (isStarted){
+                if (server.clients.get(search(ip)).first) {
+                    int x = Integer.parseInt(m[1]);
+                    server.clients.get(search(ip)).money -= x;
+                    server.clients.get(search(ip)).spent += x;
+                    /*bet++;
+                    if (bet == lvList.getItems().size()) {
+                        index++;
+                        bet = 0;
+                    }*/
+                    String card1 = server.deck.pop();
+                    String[] a1 = card1.split("");
+                    //System.out.println(card);
+                    int value1;
+                    if (a1.length == 3) {
+                        value1 = 10;
+                    } else {
+                        if (server.royals.contains(a1[0])) value1 = 10;
+                        else if (a1[0].equals("A")) {
+                            if (server.clients.get(search(ip)).sumCards + 11 > 21) value1 = 1;
+                            else value1 = 11;
+                        } else value1 = Integer.parseInt(a1[0]);
+                    }
+                    server.clients.get(search(ip)).sumCards += value1;
+                    String card2 = server.deck.pop();
+                    String[] a2 = card2.split("");
+                    //System.out.println(card);
+                    int value2;
+                    if (a2.length == 3) {
+                        value2 = 10;
+                    } else {
+                        if (server.royals.contains(a2[0])) value2 = 10;
+                        else if (a2[0].equals("A")) {
+                            if (server.clients.get(search(ip)).sumCards + 11 > 21) value2 = 1;
+                            else value2 = 11;
+                        } else value2 = Integer.parseInt(a2[0]);
+                    }
+                    server.clients.get(search(ip)).sumCards += value2;
+                    String card = server.cards.get(0);
+                    send("s:" + card, search(ip));
+                    send("k:" + card1, search(ip));
+                    send("k:" + card2, search(ip));
+                    server.clients.get(search(ip)).first = false;
+                } else {
+                    int x = Integer.parseInt(m[1]);
+                    server.clients.get(search(ip)).money -= x;
+                    server.clients.get(search(ip)).spent += x;
                 }
-                String card = server.cards.get(index);
-                send("s:" + card, search(ip));
-                send("k:" + server.deck.pop(), search(ip));
-                send("k:" + server.deck.pop(), search(ip));
+            }
             }
         }else{
             if (message.equals("exit")){
@@ -124,6 +165,7 @@ public class HelloController {
                     if (server.clients.size() == 0){
                         btStart.setTextFill(Color.web("#ff0000"));
                         btStart.setText("START");
+                        server.joinable = true;
                     }
                     isStarted = false;
                 }
@@ -135,6 +177,7 @@ public class HelloController {
                         if (server.clients.get(search(ip)).sumCards < 21) {
                             String card = server.deck.pop();
                             String[] a = card.split("");
+                            //System.out.println(card);
                             int value = 0;
                             if (a.length == 3) {
                                 value = 10;
@@ -146,6 +189,8 @@ public class HelloController {
                                 } else value = Integer.parseInt(a[0]);
                             }
                             server.clients.get(search(ip)).sumCards += value;
+                            if (server.clients.get(search(ip)).sumCards > 21) server.clients.get(search(ip)).full = true;
+                            //System.out.println(server.clients.get(search(ip)).sumCards);
                             send("k:" + card, search(ip));
                         }
                     }
@@ -153,9 +198,51 @@ public class HelloController {
             }
             if (message.equals("stand")){
                 server.clients.get(search(ip)).isStand = true;
+                System.out.println(allStand());
+                System.out.println(server.clients.get(search(ip)).sumCards);
+                System.out.println(server.sumCards);
                 if (allStand()){
+                    for (Client c : server.clients) {
+                        for (int i = 1; i < server.cards.size(); i++) {
+                            send("s:" + server.cards.get(i), search(c.ip));
+                        }
+                    }
+                    if (server.full){
+                        for (Client c : server.clients){
+                            if (!c.full){
+                                server.clients.get(search(c.ip)).money += server.clients.get(search(c.ip)).spent*2;
+                                send("balance:" + server.clients.get(search(c.ip)).money, search(c.ip));
+                            }
+                        }
+                    }else{
+                        for (Client c : server.clients){
+                            if (!c.full && server.clients.get(search(c.ip)).sumCards > server.sumCards){
+                                if (server.clients.get(search(c.ip)).cards.size() == 2){
+                                    server.clients.get(search(c.ip)).money += server.clients.get(search(c.ip)).spent*2.5;
+                                    send("balance:" + server.clients.get(search(c.ip)).money, search(c.ip));
+                                }
+                                else{
+                                    server.clients.get(search(c.ip)).money += server.clients.get(search(c.ip)).spent*2;
+                                    send("balance:" + server.clients.get(search(c.ip)).money, search(c.ip));
+                                }
+                            }
+                            if (!c.full && server.clients.get(search(c.ip)).sumCards == server.sumCards){
+                                server.clients.get(search(c.ip)).money += server.clients.get(search(c.ip)).spent;
+                                send("balance:" + server.clients.get(search(c.ip)).money, search(c.ip));
+                            }
+                        }
+                    }
+                    server.joinable = true;
+                    isStarted = false;
+                    btStart.setTextFill(Color.web("#ffa500"));
+                    btStart.setText("START");
+                    server.full = false;
+                    server.sumCards = 0;
+                    server.cards.clear();
                     while (server.sumCards < 17){
                         String card = server.deck.pop();
+                        server.cards.add(card);
+                        // System.out.println(card);
                         String[] a = card.split("");
                         int value;
                         if (a.length == 3) {
@@ -168,15 +255,19 @@ public class HelloController {
                             } else value = Integer.parseInt(a[0]);
                         }
                         server.sumCards += value;
-                        server.cards.add(server.deck.pop());
-                        for (Client c : server.clients){
-                            send("s:" + card, search(c.ip));
-                        }
+                    }
+                    for (Client c : server.clients){
+                        c.first = true;
+                        c.sumCards = 0;
+                        c.cards.clear();
+                        c.spent = 0;
+                        c.full = false;
+                        c.isStand = false;
+                        //send("paid:" + server.clients.get(search(c.ip)).money, search(c.ip));
                     }
                 }
             }
         }
-
     }
 
     private int search(String ip){
@@ -197,6 +288,7 @@ public class HelloController {
 
     @FXML private void onStartClick() {
         if (server.clients.size() > 0) {
+            server.joinable = false;
             btStart.setTextFill(Color.web("#00ff00"));
             btStart.setText("STARTED");
             isStarted = true;
@@ -204,5 +296,22 @@ public class HelloController {
                 send("start:" + server.clients.size(), server.clients.indexOf(x));
             }
         }
+    }
+
+    private void valueOf(String card, String ip){
+        String[] a = card.split("");
+        //System.out.println(card);
+        int value = 0;
+        if (a.length == 3) {
+            value = 10;
+        } else {
+            if (server.royals.contains(a[0])) value = 10;
+            else if (a[0].equals("A")) {
+                if (server.clients.get(search(ip)).sumCards + 11 > 21) value = 1;
+                else value = 11;
+            } else value = Integer.parseInt(a[0]);
+        }
+        server.clients.get(search(ip)).sumCards += value;
+        if (server.clients.get(search(ip)).sumCards > 21) server.clients.get(search(ip)).full = true;
     }
 }

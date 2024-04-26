@@ -18,6 +18,8 @@ public class Server {
     public Stack<String> deck = new Stack<>();
     public HashSet<String> royals = new HashSet<>();
     public int sumCards = 0;
+    public boolean full = false;
+    public boolean joinable = true;
 
     public Server() {
         royals.add("J");
